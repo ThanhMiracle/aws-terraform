@@ -25,12 +25,6 @@
 
 ![Lab1-image-0](aws_images/tf_output_public_private_ip.jpeg)
 
-- Internet Gateway for public EC2
-![Lab1-image-0](aws_images/igw.jpeg)
-
-- NAT gateway for private EC2
-
-
 - Setup inbound and outbound rules for each EC2
 ![Lab1-image-0](aws_images/inboud_outbound_rules.jpeg)
 
