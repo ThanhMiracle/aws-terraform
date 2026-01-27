@@ -33,3 +33,13 @@
 
 - Setup inbound and outbound rules for each EC2
 ![Lab1-image-0](aws_images/inboud_outbound_rules.jpeg)
+
+- SSH into public EC2
+![Lab1-image-0](aws_images/ssh_to_public_ip.jpeg)
+- SSH from public one to private one
+![Lab1-image-0](aws_images/from_public_to_private.jpeg)
+
+
+# LAB-3
+### EBS mount in EC2
+![Lab1-image-0](aws_images/ebs_mount.jpeg)
