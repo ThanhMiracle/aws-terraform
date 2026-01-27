@@ -43,3 +43,11 @@
 # LAB-3
 ### EBS mount in EC2
 ![Lab1-image-0](aws_images/ebs_mount.jpeg)
+
+# LAB-4
+
+### Create ALB and ASG , bucket attached to ASG
+![Lab1-image-0](aws_images/ALB_ASG.jpeg)
+
+### Access from browser through ALB's DNS
+![Lab1-image-0](aws_images/access_through_lb-dns.jpeg)
