@@ -73,6 +73,7 @@ resource "aws_instance" "this" {
   iam_instance_profile = var.iam_instance_profile
 
   user_data              = var.user_data
+  user_data_replace_on_change  = true
   vpc_security_group_ids = [aws_security_group.ssh.id]
 
   tags = merge(var.tags, { Name = "lab-ec2" })

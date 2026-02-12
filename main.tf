@@ -3,7 +3,7 @@
 ##########################
 module "vars" {
   source   = "./lab_var"
-  lab_file = coalesce(var.lab_file, "lab1")
+  lab_file = coalesce(var.lab_file, "lab01")
 }
 
 
@@ -96,60 +96,105 @@ module "ebs_data" {
 #   ssh_cidr_blocks      = local.effective_ssh_cidr_blocks
 # }
 
+module "alb" {
+  source = "./modules/alb"
+
+  name              = local.name
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+
+  target_instance_id = module.ec2_private.instance_id
+  target_port        = 80
+  health_check_path  = "/"
+
+  tags = local.ec2_tags
+}
+
 module "ec2_public" {
   source        = "./modules/ec2"
   vpc_id        = module.vpc.vpc_id
-  ami_id        = try(local.configuration.asg_alb.ami_id, null)
-  instance_type = local.configuration.asg_alb.instance_type
+  ami_id        = try(local.configuration.ec2.ami_id, null)
+  instance_type = local.configuration.ec2.instance_type
   key_name      = aws_key_pair.this.key_name
   subnet_id     = module.vpc.public_subnet_ids[0]
   tags          = merge(local.ec2_tags, { Role = "bastion" })
 
   iam_instance_profile = module.iam.instance_profile_name
-  user_data            = local.configuration.user_data
+  # user_data            = local.configuration.ec2_user_data
   ssh_cidr_blocks      = local.effective_ssh_cidr_blocks
 }
 
 module "ec2_private" {
   source        = "./modules/ec2"
   vpc_id        = module.vpc.vpc_id
-  ami_id        = try(local.configuration.asg_alb.ami_id, null)
-  instance_type = local.configuration.asg_alb.instance_type
+  ami_id        = try(local.configuration.ec2.ami_id, null)
+  instance_type = local.configuration.ec2.instance_type
   key_name      = aws_key_pair.this.key_name
   subnet_id     = module.vpc.private_subnet_ids[0]
   tags          = merge(local.ec2_tags, { Role = "private" })
 
   iam_instance_profile = module.iam.instance_profile_name
-  user_data            = local.configuration.user_data
+  user_data            = local.configuration.ec2_user_data
 
   ssh_cidr_blocks  = []
   ssh_source_sg_id = module.ec2_public.security_group_id
 }
 
+###
+# module "ec2_public" {
+#   source        = "./modules/ec2"
+#   vpc_id        = module.vpc.vpc_id
+#   ami_id        = try(local.configuration.asg_alb.ami_id, null)
+#   instance_type = local.configuration.asg_alb.instance_type
+#   key_name      = aws_key_pair.this.key_name
+#   subnet_id     = module.vpc.public_subnet_ids[0]
+#   tags          = merge(local.ec2_tags, { Role = "bastion" })
+
+#   iam_instance_profile = module.iam.instance_profile_name
+#   user_data            = local.configuration.user_data
+#   ssh_cidr_blocks      = local.effective_ssh_cidr_blocks
+# }
+
+# module "ec2_private" {
+#   source        = "./modules/ec2"
+#   vpc_id        = module.vpc.vpc_id
+#   ami_id        = try(local.configuration.asg_alb.ami_id, null)
+#   instance_type = local.configuration.asg_alb.instance_type
+#   key_name      = aws_key_pair.this.key_name
+#   subnet_id     = module.vpc.private_subnet_ids[0]
+#   tags          = merge(local.ec2_tags, { Role = "private" })
+
+#   iam_instance_profile = module.iam.instance_profile_name
+#   user_data            = local.configuration.user_data
+
+#   ssh_cidr_blocks  = []
+#   ssh_source_sg_id = module.ec2_public.security_group_id
+# }
+
 ###########################
 # ASG + ALB MODULE
 ###########################
-module "asg_alb" {
-  source = "./modules/asg_alb"
+# module "asg_alb" {
+#   source = "./modules/asg_alb"
 
-  name               = local.global_tags.environment
-  vpc_id             = module.vpc.vpc_id
-  public_subnet_ids  = module.vpc.public_subnet_ids
-  private_subnet_ids = module.vpc.private_subnet_ids
+#   name               = local.global_tags.environment
+#   vpc_id             = module.vpc.vpc_id
+#   public_subnet_ids  = module.vpc.public_subnet_ids
+#   private_subnet_ids = module.vpc.private_subnet_ids
 
-  instance_type = local.configuration.asg_alb.instance_type
-  ami_id        = try(local.configuration.asg_alb.ami_id, null)
-  key_name      = aws_key_pair.this.key_name
+#   instance_type = local.configuration.asg_alb.instance_type
+#   ami_id        = try(local.configuration.asg_alb.ami_id, null)
+#   key_name      = aws_key_pair.this.key_name
 
-  min_size         = local.configuration.asg_alb.min_size
-  max_size         = local.configuration.asg_alb.max_size
-  desired_capacity = local.configuration.asg_alb.desired_capacity
+#   min_size         = local.configuration.asg_alb.min_size
+#   max_size         = local.configuration.asg_alb.max_size
+#   desired_capacity = local.configuration.asg_alb.desired_capacity
 
-  alb_listener_port = local.configuration.asg_alb.alb_listener_port
-  target_port       = local.configuration.asg_alb.target_port
-  health_check_path = local.configuration.asg_alb.health_check_path
+#   alb_listener_port = local.configuration.asg_alb.alb_listener_port
+#   target_port       = local.configuration.asg_alb.target_port
+#   health_check_path = local.configuration.asg_alb.health_check_path
 
-  user_data = local.configuration.user_data
-  tags      = local.ec2_tags
-}
+#   user_data = local.configuration.user_data
+#   tags      = local.ec2_tags
+# }
 

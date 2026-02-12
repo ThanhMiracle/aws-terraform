@@ -40,6 +40,26 @@ output "private_instance_private_ip" {
   value = module.ec2_private.private_ip
 }
 
-output "lab04_alb_url" {
-  value = "http://${module.asg_alb.alb_dns_name}"
+
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.alb.alb_dns_name
 }
+
+output "alb_security_group_id" {
+  description = "Security group ID of ALB"
+  value       = module.alb.alb_security_group_id
+}
+
+output "private_ec2_instance_id" {
+  description = "Private EC2 instance ID"
+  value       = module.ec2_private.instance_id
+}
+
+output "private_ec2_security_group_id" {
+  description = "Private EC2 security group ID"
+  value       = module.ec2_private.security_group_id
+}
+# output "lab04_alb_url" {
+#   value = "http://${module.asg_alb.alb_dns_name}"
+# }

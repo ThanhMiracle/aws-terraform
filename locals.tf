@@ -8,4 +8,6 @@ locals {
   # tags used for resources/modules
   vpc_tags = merge(module.tagging.tags, { Component = "vpc" })
   ec2_tags = merge(module.tagging.tags, { Component = "ec2" })
+
+  name = try(local.global_variables.name, local.configuration.environment, "lab")
 }
