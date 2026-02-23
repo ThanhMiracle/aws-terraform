@@ -10,4 +10,5 @@ locals {
   ec2_tags = merge(module.tagging.tags, { Component = "ec2" })
 
   name = try(local.global_variables.name, local.configuration.environment, "lab")
+
 }

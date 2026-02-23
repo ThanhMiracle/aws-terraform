@@ -66,3 +66,48 @@ resource "aws_iam_instance_profile" "this" {
   name = "${var.name_prefix}-ec2-profile"
   role = aws_iam_role.this.name
 }
+
+
+########################################
+# Optional Allow: read specific Secrets Manager secrets
+########################################
+data "aws_iam_policy_document" "allow_read_secrets" {
+  count = length(var.secret_arns) > 0 ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret"
+    ]
+    resources = var.secret_arns
+  }
+}
+
+resource "aws_iam_role_policy" "allow_read_secrets" {
+  count  = length(var.secret_arns) > 0 ? 1 : 0
+  name   = "AllowReadSecrets"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.allow_read_secrets[0].json
+}
+
+
+########################################
+# Optional Allow: describe RDS instances (to discover endpoint + secret ARN)
+########################################
+data "aws_iam_policy_document" "allow_rds_describe" {
+  count = var.allow_rds_describe ? 1 : 0
+
+  statement {
+    effect    = "Allow"
+    actions   = ["rds:DescribeDBInstances"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "allow_rds_describe" {
+  count  = var.allow_rds_describe ? 1 : 0
+  name   = "AllowRdsDescribeInstances"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.allow_rds_describe[0].json
+}

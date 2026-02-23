@@ -19,3 +19,8 @@ variable "ssh_cidr_blocks" {
   description = "CIDRs allowed to SSH. If null, defaults to your current public IP /32."
   default     = null
 }
+
+# variable "db_password" {
+#   type      = string
+#   sensitive = true
+# }

@@ -28,6 +28,9 @@ module "iam" {
   tags        = local.global_tags
 
   deny_all_s3 = try(local.configuration.ec2.attach_deny_s3, false)
+  secret_arns = [
+    module.rds.master_user_secret_arn
+  ]
 }
 
 
@@ -119,9 +122,9 @@ module "ec2_public" {
   subnet_id     = module.vpc.public_subnet_ids[0]
   tags          = merge(local.ec2_tags, { Role = "bastion" })
 
-  iam_instance_profile = module.iam.instance_profile_name
+  # iam_instance_profile = module.iam.instance_profile_name
   # user_data            = local.configuration.ec2_user_data
-  ssh_cidr_blocks      = local.effective_ssh_cidr_blocks
+  ssh_cidr_blocks = local.effective_ssh_cidr_blocks
 }
 
 module "ec2_private" {
@@ -134,10 +137,53 @@ module "ec2_private" {
   tags          = merge(local.ec2_tags, { Role = "private" })
 
   iam_instance_profile = module.iam.instance_profile_name
-  user_data            = local.configuration.ec2_user_data
+
+  user_data = templatefile(
+  local.configuration.ec2_user_data.template_path,
+  merge(
+    local.configuration.ec2_user_data,
+    {
+      # ✅ truyền NỘI DUNG script thay vì đường dẫn
+      install_docker = file(local.configuration.ec2_user_data.parts.install_docker)
+      create_env     = file(local.configuration.ec2_user_data.parts.create_env)
+
+      app_dir                = local.configuration.ec2_user_data.app_dir
+      db_instance_identifier = "pg-${local.configuration.db.db_identifier}"
+      db_name                = local.configuration.db.db_name
+    }
+  )
+)
 
   ssh_cidr_blocks  = []
   ssh_source_sg_id = module.ec2_public.security_group_id
+}
+
+module "rds" {
+  source = "./modules/rds"
+
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+
+  engine               = local.configuration.db.engine
+  engine_version       = local.configuration.db.engine_version
+  instance_class       = local.configuration.db.instance_class
+  allocated_storage_gb = local.configuration.db.allocated_storage_gb
+
+  db_identifier = try(local.configuration.db.db_identifier, "${local.configuration.environment}-${local.configuration.db.db_name}")
+  db_name       = local.configuration.db.db_name
+  username      = local.configuration.db.username
+  port          = local.configuration.db.port
+
+  allowed_sg_ids = [module.ec2_private.security_group_id]
+
+  publicly_accessible   = local.configuration.db.publicly_accessible
+  multi_az              = local.configuration.db.multi_az
+  backup_retention_days = local.configuration.db.backup_retention_days
+  deletion_protection   = local.configuration.db.deletion_protection
+  skip_final_snapshot   = local.configuration.db.skip_final_snapshot
+  apply_immediately     = local.configuration.db.apply_immediately
+
+  tags = local.global_tags
 }
 
 ###
