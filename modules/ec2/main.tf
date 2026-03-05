@@ -1,6 +1,6 @@
-data "aws_ami" "ubuntu_2204" {
+data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"] # Canonical (official Ubuntu publisher)
+  owners      = ["099720109477"] # Canonical (official Ubuntu)
 
   filter {
     name   = "name"
@@ -8,52 +8,21 @@ data "aws_ami" "ubuntu_2204" {
   }
 
   filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  filter {
     name   = "architecture"
     values = ["x86_64"]
   }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
 }
 
-resource "aws_security_group" "ssh" {
-  name_prefix = "ec2-sg-"
+resource "aws_security_group" "this" {
+  name        = try("${var.tags["Name"]}-sg", null)
+  description = "EC2 security group"
   vpc_id      = var.vpc_id
-
-  # HTTP open to the internet (lab-friendly)
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # SSH from CIDR (public instance use-case)
-  dynamic "ingress" {
-    for_each = (var.ssh_source_sg_id == null && length(var.ssh_cidr_blocks) > 0) ? [1] : []
-    content {
-      description = "SSH from CIDR"
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = var.ssh_cidr_blocks
-    }
-  }
-
-  # SSH from another Security Group (private instance use-case)
-  dynamic "ingress" {
-    for_each = (var.ssh_source_sg_id != null) ? [1] : []
-    content {
-      description     = "SSH from bastion SG"
-      from_port       = 22
-      to_port         = 22
-      protocol        = "tcp"
-      security_groups = [var.ssh_source_sg_id]
-    }
-  }
+  tags        = var.tags
 
   egress {
     from_port   = 0
@@ -61,20 +30,58 @@ resource "aws_security_group" "ssh" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
 
-  tags = merge(var.tags, { Name = "ec2-sg" })
+# SSH from CIDRs (bastion use-case)
+resource "aws_security_group_rule" "ssh_from_cidrs" {
+  count = length(var.ssh_cidr_blocks) > 0 ? 1 : 0
+
+  type              = "ingress"
+  security_group_id = aws_security_group.this.id
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = var.ssh_cidr_blocks
+  description       = "SSH from allowed CIDRs"
+}
+
+# SSH from another SG (private use-case: bastion -> private)
+resource "aws_security_group_rule" "ssh_from_sg" {
+  for_each = var.enable_ssh_from_sg ? { "ssh" = var.ssh_source_sg_id } : {}
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.this.id
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = each.value
+  description              = "SSH from bastion security group"
+}
+
+
+# App port from ALB (or any SG you specify)
+resource "aws_security_group_rule" "app_from_sg" {
+  for_each = var.enable_app_from_sg ? { "app" = var.allow_app_from_sg_id } : {}
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.this.id
+  from_port                = var.app_port
+  to_port                  = var.app_port
+  protocol                 = "tcp"
+  source_security_group_id = each.value
+  description              = "App access from ALB security group"
 }
 
 resource "aws_instance" "this" {
-  ami                  = coalesce(var.ami_id, data.aws_ami.ubuntu_2204.id)
-  instance_type        = var.instance_type
-  subnet_id            = var.subnet_id
-  key_name             = var.key_name
+  ami                         = coalesce(var.ami_id, data.aws_ami.ubuntu.id)
+  instance_type               = var.instance_type
+  subnet_id                   = var.subnet_id
+  vpc_security_group_ids      = [aws_security_group.this.id]
+  associate_public_ip_address = var.associate_public_ip_address
+  key_name                    = var.key_name
+
   iam_instance_profile = var.iam_instance_profile
+  user_data            = var.user_data
 
-  user_data                   = var.user_data
-  user_data_replace_on_change = true
-  vpc_security_group_ids      = [aws_security_group.ssh.id]
-
-  tags = merge(var.tags, { Name = "lab-ec2" })
+  tags = var.tags
 }

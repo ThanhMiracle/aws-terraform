@@ -9,6 +9,26 @@ locals {
   vpc_tags = merge(module.tagging.tags, { Component = "vpc" })
   ec2_tags = merge(module.tagging.tags, { Component = "ec2" })
 
-  name = try(local.global_variables.name, local.configuration.environment, "lab")
-
+  user_data_rendered = templatefile(
+    local.configuration.user_data.template_path,
+    {
+      app_dir        = local.configuration.user_data.app_dir
+      install_docker = file(local.configuration.user_data.parts.install_docker)
+    }
+  )
 }
+
+
+# lab_var/lab01.tf
+#         │
+#         ▼
+# object (template_path, parts, app_dir)
+#         │
+#         ▼
+# templatefile() + file()
+#         │
+#         ▼
+# string user_data script
+#         │
+#         ▼
+# EC2 instance

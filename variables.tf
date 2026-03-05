@@ -20,7 +20,16 @@ variable "ssh_cidr_blocks" {
   default     = null
 }
 
-# variable "db_password" {
-#   type      = string
-#   sensitive = true
-# }
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = null
+}
+
+# Used by module "asm" (kms_key_id can be key id, key ARN, alias, or alias ARN)
+variable "kms_key_id" {
+  description = "KMS key identifier for Secrets Manager encryption (key id/arn or alias)"
+  type        = string
+  default     = null
+}
+

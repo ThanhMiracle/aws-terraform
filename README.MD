@@ -265,3 +265,12 @@ For your Docker + user-data case, `-replace` guarantees user-data runs again.
 ---
 
 If you want, I can also explain when `taint` is better than `-replace` and how they differ internally.
+
+
+aws secretsmanager delete-secret \
+  --secret-id 'lab01/app-secrets' \
+  --force-delete-without-recovery
+
+  ssh -i ~/.ssh/id_ed25519 ubuntu@
+
+

@@ -1,23 +1,18 @@
-############################
-# Networking
-############################
+locals {
+  allowed_sg_map = { for idx, sg_id in var.allowed_sg_ids : tostring(idx) => sg_id }
+}
+
 resource "aws_db_subnet_group" "this" {
-  name       = "pg-subnets-${var.db_identifier}"
+  name       = "${var.db_identifier}-subnet-group"
   subnet_ids = var.private_subnet_ids
   tags       = var.tags
 }
 
 resource "aws_security_group" "this" {
-  name_prefix = "pg-sg-"
+  name        = "${var.db_identifier}-rds-sg"
+  description = "RDS security group"
   vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "Postgres from allowed SGs"
-    from_port       = var.port
-    to_port         = var.port
-    protocol        = "tcp"
-    security_groups = var.allowed_sg_ids
-  }
+  tags        = var.tags
 
   egress {
     from_port   = 0
@@ -25,50 +20,48 @@ resource "aws_security_group" "this" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = merge(var.tags, { Name = "pg-sg-${var.db_identifier}" })
 }
 
-############################
-# RDS PostgreSQL
-############################
+resource "aws_security_group_rule" "ingress_from_allowed_sgs" {
+  for_each = local.allowed_sg_map
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.this.id
+  from_port                = var.port
+  to_port                  = var.port
+  protocol                 = "tcp"
+  source_security_group_id = each.value
+  description              = "Allow DB access from allowed security group"
+}
+
 resource "aws_db_instance" "this" {
-  identifier = "pg-${var.db_identifier}"
+  identifier = var.db_identifier
 
   engine         = var.engine
   engine_version = var.engine_version
-  instance_class = var.instance_class
 
+  instance_class    = var.instance_class
   allocated_storage = var.allocated_storage_gb
+  storage_type      = var.storage_type
 
-  # NOTE:
-  # - db_name phải hợp lệ (không dấu '-', không bắt đầu bằng số, v.v.)
-  # - identifier có thể chứa '-'
   db_name  = var.db_name
   username = var.username
   port     = var.port
 
-  # AWS generates + stores master password in Secrets Manager
+  # ✅ store master password in Secrets Manager automatically
   manage_master_user_password = true
 
-  db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [aws_security_group.this.id]
+  db_subnet_group_name   = aws_db_subnet_group.this.name
 
-  publicly_accessible = false # EC2 trong VPC thì nên private RDS
+  publicly_accessible      = var.publicly_accessible
+  multi_az                 = var.multi_az
+  backup_retention_period  = var.backup_retention_days
+  deletion_protection      = var.deletion_protection
+  skip_final_snapshot      = var.skip_final_snapshot
+  apply_immediately        = var.apply_immediately
 
-  multi_az                = var.multi_az
-  backup_retention_period = var.backup_retention_days
-  deletion_protection     = var.deletion_protection
-
-  apply_immediately   = var.apply_immediately
-  skip_final_snapshot = var.skip_final_snapshot
-
-  # Recommended baseline
   storage_encrypted = true
 
-  tags = merge(var.tags, { Name = "pg-${var.db_identifier}" })
+  tags = var.tags
 }
-
-############################
-# Outputs (để EC2/app dùng)
-############################

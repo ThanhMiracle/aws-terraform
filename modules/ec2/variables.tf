@@ -1,13 +1,16 @@
-variable "ami_id" {
-  type        = string
-  description = "AMI ID (optional). If null, use latest Ubuntu 22.04."
-  default     = null
-}
-variable "instance_type" {
+variable "vpc_id" {
   type = string
 }
 
 variable "subnet_id" {
+  type = string
+}
+
+variable "ami_id" {
+  type = string
+}
+
+variable "instance_type" {
   type = string
 }
 
@@ -17,34 +20,61 @@ variable "key_name" {
 }
 
 variable "tags" {
-  type = map(string)
+  type    = map(string)
+  default = {}
+}
+
+variable "iam_instance_profile" {
+  type    = string
+  default = null
+  description = "Instance profile name to attach to EC2 (from IAM module output)"
 }
 
 variable "user_data" {
   type        = string
-  description = "User data script"
   default     = null
+  description = "User data script (cloud-init/bash) for the instance"
 }
 
-
-variable "vpc_id" {
-  type = string
-}
+# SSH from CIDRs (typically for bastion)
 variable "ssh_cidr_blocks" {
   type        = list(string)
-  description = "CIDR blocks allowed to SSH to EC2"
-  default     = ["0.0.0.0/0"]
+  default     = []
+  description = "CIDR blocks allowed to SSH to this instance"
 }
 
-variable "iam_instance_profile" {
-  type        = string
-  description = "IAM instance profile name to attach to the EC2 instance"
-  default     = null
-}
-
-
+# SSH from a security group (typically bastion -> private)
 variable "ssh_source_sg_id" {
   type        = string
-  description = "Security group ID allowed to SSH to this instance (bastion). If set, CIDR SSH can be empty."
   default     = null
+  description = "If set, allow SSH from this security group"
+}
+
+# Allow app traffic (e.g., ALB -> private EC2)
+variable "app_port" {
+  type        = number
+  default     = 80
+  description = "Application port exposed by services on the instance"
+}
+
+variable "allow_app_from_sg_id" {
+  type        = string
+  default     = null
+  description = "If set, allow inbound app_port from this security group (e.g., ALB SG)"
+}
+
+# Optional: public IP association (true for bastion, false for private)
+variable "associate_public_ip_address" {
+  type    = bool
+  default = false
+}
+
+variable "enable_ssh_from_sg" {
+  type    = bool
+  default = false
+}
+
+variable "enable_app_from_sg" {
+  type    = bool
+  default = false
 }

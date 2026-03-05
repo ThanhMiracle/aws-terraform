@@ -1,32 +1,87 @@
-variable "vpc_id" { type = string }
-variable "private_subnet_ids" { type = list(string) }
+variable "vpc_id" {
+  type = string
+}
 
-variable "db_name" { type = string }
-variable "engine" { type = string }
-# variable "password" {
-#   type      = string
-#   sensitive = true
-# }
-variable "username" { type = string }
-variable "engine_version" { type = string }
-variable "instance_class" { type = string }
-variable "allocated_storage_gb" { type = number }
-variable "port" { type = number }
+variable "private_subnet_ids" {
+  type = list(string)
+}
 
-variable "allowed_sg_ids" {
-  type        = list(string)
-  description = "Security groups allowed to connect to Postgres"
+variable "engine" {
+  type    = string
+  default = "postgres"
+}
+
+variable "engine_version" {
+  type = string
+}
+
+variable "instance_class" {
+  type = string
+}
+
+variable "allocated_storage_gb" {
+  type = number
+}
+
+variable "storage_type" {
+  type    = string
+  default = "gp3"
 }
 
 variable "db_identifier" {
-  description = "RDS identifier suffix (can include '-')"
-  type        = string
+  type = string
 }
 
-variable "publicly_accessible" { type = bool }
-variable "multi_az" { type = bool }
-variable "backup_retention_days" { type = number }
-variable "deletion_protection" { type = bool }
-variable "tags" { type = map(string) }
-variable "apply_immediately" { type = bool }
-variable "skip_final_snapshot" { type = bool }
+variable "db_name" {
+  type = string
+}
+
+variable "username" {
+  type = string
+}
+
+variable "port" {
+  type    = number
+  default = 5432
+}
+
+variable "allowed_sg_ids" {
+  description = "Security groups allowed to connect to DB (e.g., app EC2 SG)"
+  type        = list(string)
+  default     = []
+}
+
+variable "publicly_accessible" {
+  type    = bool
+  default = false
+}
+
+variable "multi_az" {
+  type    = bool
+  default = false
+}
+
+variable "backup_retention_days" {
+  type    = number
+  default = 0
+}
+
+variable "deletion_protection" {
+  type    = bool
+  default = false
+}
+
+variable "skip_final_snapshot" {
+  type    = bool
+  default = true
+}
+
+variable "apply_immediately" {
+  type    = bool
+  default = true
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
