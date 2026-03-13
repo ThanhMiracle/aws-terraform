@@ -1,7 +1,7 @@
 variable "name_prefix" { type = string }
-variable "tags" { 
-    type = map(string)
-    default = {} 
+variable "tags" {
+  type    = map(string)
+  default = {}
 }
 
 variable "from_email_address" {

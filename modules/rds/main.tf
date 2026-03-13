@@ -50,16 +50,18 @@ resource "aws_db_instance" "this" {
 
   # ✅ store master password in Secrets Manager automatically
   manage_master_user_password = true
+  # optional: use your own KMS key for the RDS-managed secret
+  # master_user_secret_kms_key_id = aws_kms_key.rds_secret.arn
 
   vpc_security_group_ids = [aws_security_group.this.id]
   db_subnet_group_name   = aws_db_subnet_group.this.name
 
-  publicly_accessible      = var.publicly_accessible
-  multi_az                 = var.multi_az
-  backup_retention_period  = var.backup_retention_days
-  deletion_protection      = var.deletion_protection
-  skip_final_snapshot      = var.skip_final_snapshot
-  apply_immediately        = var.apply_immediately
+  publicly_accessible     = var.publicly_accessible
+  multi_az                = var.multi_az
+  backup_retention_period = var.backup_retention_days
+  deletion_protection     = var.deletion_protection
+  skip_final_snapshot     = var.skip_final_snapshot
+  apply_immediately       = var.apply_immediately
 
   storage_encrypted = true
 

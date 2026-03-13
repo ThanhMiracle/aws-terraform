@@ -106,3 +106,14 @@ variable "ssl_policy" {
   default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   description = "SSL policy for HTTPS listeners"
 }
+
+variable "app_security_group_id" {
+  type        = string
+  description = "Security group ID of the application (private EC2) to allow ALB -> app traffic"
+}
+
+variable "app_port" {
+  type        = number
+  description = "Port the app listens on"
+  default     = 80
+}

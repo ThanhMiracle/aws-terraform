@@ -114,6 +114,9 @@ resource "random_password" "mq" {
   count   = var.password == null ? 1 : 0
   length  = 24
   special = true
+
+  # Avoid characters Amazon MQ rejects: , : = [ ]
+  override_special = "!@#$%^&*()-_+."
 }
 
 locals {
@@ -150,8 +153,8 @@ resource "aws_mq_broker" "this" {
   publicly_accessible = var.publicly_accessible
   apply_immediately   = var.apply_immediately
 
-  subnet_ids       = local.selected_subnet_ids
-  security_groups  = [aws_security_group.mq.id]
+  subnet_ids                 = local.selected_subnet_ids
+  security_groups            = [aws_security_group.mq.id]
   auto_minor_version_upgrade = true
   user {
     username = var.username

@@ -34,85 +34,104 @@ resource "aws_iam_instance_profile" "this" {
 # Consolidated inline policy
 ########################################
 locals {
-  # Only needed if you use a customer-managed KMS key for Secrets Manager.
-  secret_arn_patterns_for_kms = length(var.secret_arns) > 0 ? [for a in var.secret_arns : "${a}*"] : []
+  enable_s3_product_image_upload = (
+    var.enable_product_image_upload &&
+    var.s3_bucket_arn != null &&
+    trimspace(var.s3_bucket_arn) != ""
+  )
 
-  # A single switch to decide whether we create a combined policy at all
+  enable_secrets_access = (
+    var.enable_secrets_read &&
+    length(var.secret_arns) > 0
+  )
+
   create_combined_policy = (
     var.allow_list_all_buckets ||
-    var.deny_all_s3 ||
+    local.enable_s3_product_image_upload ||
     var.allow_rds_describe ||
-    (var.enable_secrets_read && length(var.secret_arns) > 0) ||
-    (var.kms_key_arn != null && var.kms_key_arn != "")
+    var.enable_ses_send ||
+    local.enable_secrets_access
   )
 }
 
 data "aws_iam_policy_document" "combined" {
   count = local.create_combined_policy ? 1 : 0
 
-  # Allow: list buckets (rarely needed)
+  ########################################
+  # S3: optional list all buckets
+  ########################################
   dynamic "statement" {
-    for_each = var.enable_product_image_upload ? [1] : []
+    for_each = var.allow_list_all_buckets ? [1] : []
     content {
       effect = "Allow"
+      actions = [
+        "s3:ListAllMyBuckets"
+      ]
+      resources = ["*"]
+    }
+  }
 
+  ########################################
+  # S3: product images (only when enabled)
+  ########################################
+
+  # Allow listing only the products/ prefix
+  dynamic "statement" {
+    for_each = local.enable_s3_product_image_upload ? [1] : []
+    content {
+      effect = "Allow"
       actions = [
         "s3:ListBucket"
       ]
-
       resources = [
         var.s3_bucket_arn
       ]
-
       condition {
         test     = "StringLike"
         variable = "s3:prefix"
-        values   = [
-          "products/*",
-          "products"
-        ]
+        values   = ["products", "products/*"]
       }
     }
   }
-  # Allow product-service (EC2 role) to upload/delete product images in S3
+
+  # Allow object operations under products/
   dynamic "statement" {
-    for_each = var.enable_product_image_upload ? [1] : []
+    for_each = local.enable_s3_product_image_upload ? [1] : []
     content {
       effect = "Allow"
-
       actions = [
+        "s3:GetObject",
         "s3:PutObject",
         "s3:DeleteObject",
         "s3:AbortMultipartUpload",
         "s3:ListMultipartUploadParts"
       ]
-
       resources = [
         "${var.s3_bucket_arn}/products/*"
       ]
     }
   }
 
-  # Some SDK operations require bucket-level permissions
+  # Allow bucket-level operations needed by SDKs / multipart uploads
   dynamic "statement" {
-    for_each = var.enable_product_image_upload ? [1] : []
+    for_each = local.enable_s3_product_image_upload ? [1] : []
     content {
       effect = "Allow"
-
       actions = [
         "s3:GetBucketLocation",
         "s3:ListBucketMultipartUploads"
       ]
-
       resources = [
         var.s3_bucket_arn
       ]
     }
   }
 
-  # Allow: read Secrets Manager secrets
+  ########################################
+  # Secrets Manager (only when enabled)
+  ########################################
   dynamic "statement" {
-    for_each = (var.enable_secrets_read && length(var.secret_arns) > 0) ? [1] : []
+    for_each = local.enable_secrets_access ? [1] : []
     content {
       effect = "Allow"
       actions = [
@@ -123,38 +142,33 @@ data "aws_iam_policy_document" "combined" {
     }
   }
 
-  # Allow: describe RDS instances
+  ########################################
+  # RDS describe (optional)
+  ########################################
   dynamic "statement" {
     for_each = var.allow_rds_describe ? [1] : []
     content {
-      effect    = "Allow"
-      actions   = ["rds:DescribeDBInstances"]
+      effect = "Allow"
+      actions = [
+        "rds:DescribeDBInstances"
+      ]
       resources = ["*"]
     }
   }
 
-  # Allow: KMS decrypt for secrets (only if kms_key_arn provided AND you are reading secrets)
+  ########################################
+  # SES send email (optional)
+  ########################################
   dynamic "statement" {
-    for_each = (
-      (var.kms_key_arn != null && var.kms_key_arn != "") &&
-      (var.enable_secrets_read && length(var.secret_arns) > 0)
-    ) ? [1] : []
+    for_each = var.enable_ses_send ? [1] : []
     content {
-      effect    = "Allow"
-      actions   = ["kms:Decrypt"]
-      resources = [var.kms_key_arn]
-
-      condition {
-        test     = "StringEquals"
-        variable = "kms:ViaService"
-        values   = ["secretsmanager.${var.aws_region}.amazonaws.com"]
-      }
-
-      condition {
-        test     = "StringLike"
-        variable = "kms:EncryptionContext:aws:secretsmanager:arn"
-        values   = local.secret_arn_patterns_for_kms
-      }
+      effect = "Allow"
+      actions = [
+        "ses:SendEmail",
+        "ses:SendRawEmail",
+        "ses:GetIdentityVerificationAttributes"
+      ]
+      resources = ["*"]
     }
   }
 }

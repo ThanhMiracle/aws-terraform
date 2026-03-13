@@ -1,4 +1,4 @@
-variable "lab_file" {
+variable "environment" {
   type        = string
   description = "Environment/profile name"
   default     = null

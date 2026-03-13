@@ -20,6 +20,6 @@ output "master_user_secret_arn" {
   description = "Secrets Manager secret ARN created by RDS (manage_master_user_password=true)"
 }
 
-output "master_username" { 
-  value = aws_db_instance.this.username 
+output "master_username" {
+  value = aws_db_instance.this.username
 }

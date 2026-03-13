@@ -1,11 +1,10 @@
 ##########################
-# LOAD LAB VARS (lab_var module)
+# LOAD ENV VARS (lab_var module)
 ##########################
 module "vars" {
-  source   = "./lab_var"
-  lab_file = coalesce(var.lab_file, "lab1")
+  source      = "./lab_var"
+  environment = coalesce(var.environment, "dev")
 }
-
 
 ##########################
 # TAGGING MODULE
@@ -13,7 +12,7 @@ module "vars" {
 module "tagging" {
   source = "./modules/tagging"
 
-  environment    = local.global_tags.environment
+  environment    = local.environment
   provisioned_by = local.global_tags.provisioned_by
   project        = local.global_tags.project
   owner          = local.global_tags.owner
@@ -23,13 +22,11 @@ module "tagging" {
 # S3 MODULE
 ##########################
 module "s3" {
-  source           = "./modules/s3"
+  source             = "./modules/s3"
   bucket_name        = local.configuration.s3.images_bucket_name
   force_destroy      = true
-  tags               = local.global_tags
   versioning_enabled = false
-
-  # bucket_policy_json = data.aws_iam_policy_document.s3_allow_cloudfront_read.json
+  tags               = local.s3_tags
 }
 
 ##########################
@@ -38,12 +35,9 @@ module "s3" {
 module "iam" {
   source = "./modules/iam"
 
-  name_prefix = local.global_tags.environment
-  tags        = local.global_tags
+  name_prefix = local.environment
+  tags        = local.iam_tags
 
-  aws_region = var.aws_region
-
-  # deny_all_s3        = try(local.configuration.ec2.attach_deny_s3, false)
   allow_rds_describe = true
 
   enable_secrets_read = true
@@ -52,12 +46,10 @@ module "iam" {
     try(module.app_secrets.arn, null),
     try(module.mq.secret_arn, null)
   ])
+
   enable_product_image_upload = local.configuration.ec2.enable_product_image_upload
   s3_bucket_arn               = module.s3.bucket_arn
-
-  # Only set this if your secrets use a customer-managed KMS key
-  # kms_key_arn = try(local.configuration.kms.kms_key_arn, null)
-
+  enable_ses_send             = true
 }
 
 ##########################
@@ -65,7 +57,7 @@ module "iam" {
 ##########################
 module "vpc" {
   source      = "./modules/vpc"
-  name_prefix = local.global_tags.environment
+  name_prefix = local.environment
 
   vpc_cidr = local.configuration.vpc.cidr
 
@@ -81,17 +73,18 @@ module "vpc" {
     local.configuration.vpc.subnet_count
   )
 
-  # optional (defaults to true)
   enable_nat_gateway = true
 
   tags = local.vpc_tags
 }
 
-
+##########################
+# EC2 PUBLIC / BASTION
+##########################
 module "ec2_public" {
-  source        = "./modules/ec2"
-  vpc_id        = module.vpc.vpc_id
-  subnet_id     = module.vpc.public_subnet_ids[0]
+  source    = "./modules/ec2"
+  vpc_id    = module.vpc.vpc_id
+  subnet_id = module.vpc.public_subnet_ids[0]
 
   ami_id        = local.configuration.ec2.ami_id
   instance_type = local.configuration.ec2.instance_type
@@ -101,22 +94,21 @@ module "ec2_public" {
   enable_app_from_sg = false
 
   associate_public_ip_address = true
-
-  # iam_instance_profile = module.iam.instance_profile_name
-  # user_data            = local.configuration.user_data
-
-  ssh_cidr_blocks = local.effective_ssh_cidr_blocks
+  ssh_cidr_blocks             = local.effective_ssh_cidr_blocks
 
   tags = merge(local.ec2_tags, {
-    Name = "${local.global_tags.environment}-bastion"
+    Name = "${local.environment}-bastion"
     Role = "bastion"
   })
 }
 
+##########################
+# EC2 PRIVATE / APP
+##########################
 module "ec2_private" {
-  source        = "./modules/ec2"
-  vpc_id        = module.vpc.vpc_id
-  subnet_id     = module.vpc.private_subnet_ids[0]
+  source    = "./modules/ec2"
+  vpc_id    = module.vpc.vpc_id
+  subnet_id = module.vpc.private_subnet_ids[0]
 
   ami_id        = local.configuration.ec2.ami_id
   instance_type = local.configuration.ec2.instance_type
@@ -127,18 +119,15 @@ module "ec2_private" {
   iam_instance_profile = module.iam.instance_profile_name
   user_data            = local.user_data_rendered
 
-  # 🔒 No direct SSH from internet
-  ssh_cidr_blocks  = []
+  ssh_cidr_blocks    = []
   enable_ssh_from_sg = true
-  ssh_source_sg_id = module.ec2_public.security_group_id
+  ssh_source_sg_id   = module.ec2_public.security_group_id
 
-  # ALB -> app
-  enable_app_from_sg = true
-  app_port              = 80
-  allow_app_from_sg_id  = module.lb.security_group_id
+  enable_app_from_sg = false
+  app_port           = try(local.configuration.lb.target_port, 80)
 
   tags = merge(local.ec2_tags, {
-    Name = "${local.global_tags.environment}-private"
+    Name = "${local.environment}-private"
     Role = "private"
   })
 }
@@ -146,22 +135,24 @@ module "ec2_private" {
 ###########################
 # ALB MODULE
 ###########################
-
 module "lb" {
   source = "./modules/alb"
 
-  name_prefix = local.global_tags.environment
+  name_prefix = local.environment
   vpc_id      = module.vpc.vpc_id
   subnet_ids  = module.vpc.public_subnet_ids
-  tags        = local.global_tags
+  tags        = local.alb_tags
 
-  target_instance_id = module.ec2_private.instance_id
-  target_port        = 80
-
-  healthcheck_path   = "/health"
+  target_instance_id    = module.ec2_private.instance_id
+  target_port           = try(local.configuration.lb.target_port, 80)
+  healthcheck_path      = try(local.configuration.lb.healthcheck_path, "/health")
+  app_security_group_id = module.ec2_private.security_group_id
+  app_port              = try(local.configuration.lb.target_port, 80)
 }
 
-
+##########################
+# RDS MODULE
+##########################
 module "rds" {
   source = "./modules/rds"
 
@@ -188,64 +179,51 @@ module "rds" {
   skip_final_snapshot   = local.configuration.db.skip_final_snapshot
   apply_immediately     = local.configuration.db.apply_immediately
 
-  tags = module.tagging.tags
+  tags = local.rds_tags
 }
 
+##########################
+# MQ MODULE
+##########################
 module "mq" {
   source = "./modules/mq"
 
-  name_prefix         = local.global_tags.environment
-  tags                = local.global_tags
+  name_prefix = local.environment
+  tags        = local.mq_tags
 
-  vpc_id              = module.vpc.vpc_id
-  private_subnet_ids  = module.vpc.private_subnet_ids
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
 
-  # allow only your private app EC2 SG
   allowed_sg_ids = [module.ec2_private.security_group_id]
 
-  deployment_mode    = "SINGLE_INSTANCE"
-  host_instance_type = "mq.t3.micro"
-
-  # optional:
+  deployment_mode           = try(local.configuration.mq.deployment_mode, "SINGLE_INSTANCE")
+  host_instance_type        = try(local.configuration.mq.host_instance_type, "mq.t3.micro")
   enable_management_ingress = false
-  recovery_window_days = try(local.configuration.mq.recovery_window_days, 7)
+  recovery_window_days      = try(local.configuration.mq.recovery_window_days, 7)
 }
 
-
-module "cloudfront_s3" {
-  source = "./modules/cloudfront_s3"
-
-  name_prefix = local.global_tags.environment
-  tags        = local.global_tags
-
-  bucket_id                   = module.s3.bucket_id
-  bucket_arn                  = module.s3.bucket_arn
-  bucket_regional_domain_name = module.s3.bucket_regional_domain_name
-  # bucket_policy_json = data.aws_iam_policy_document.s3_allow_cloudfront_read.json
-
-  # Optional custom domain:
-  # aliases             = ["img.yourdomain.com"]
-  # acm_certificate_arn = var.cloudfront_acm_cert_arn  # must be us-east-1
-}
-
-
+##########################
+# SES MODULE
+##########################
 module "ses" {
   source = "./modules/ses"
 
-  name_prefix        = local.global_tags.environment
-  tags               = local.global_tags
+  name_prefix        = local.environment
+  tags               = local.ses_tags
   from_email_address = local.configuration.secrets.from_email_address
 }
 
-
+##########################
+# APP SECRETS MODULE
+##########################
 module "app_secrets" {
   source = "./modules/secrets_manager_app"
 
-  name_prefix = local.global_tags.environment
-  secret_name = "microshop/app"
-  tags        = local.global_tags
+  name_prefix = local.environment
+  secret_name = "${local.environment}/microshop/app"
+  tags        = local.secrets_tags
 
-  recovery_window_in_days = 7
+  recovery_window_in_days = local.configuration.secrets.recovery_window_days
 
   secret_data = {
     JWT_SECRET     = local.configuration.secrets.jwt_secret
@@ -256,8 +234,8 @@ module "app_secrets" {
     SMTP_PORT     = tostring(local.configuration.secrets.smtp_port)
     SMTP_USE_TLS  = tostring(local.configuration.secrets.smtp_use_tls)
     SMTP_USE_AUTH = tostring(local.configuration.secrets.smtp_use_auth)
-    SMTP_USER     = local.configuration.secrets.smtp_user
-    SMTP_PASS     = local.configuration.secrets.smtp_pass
+    SMTP_USER     = module.ses.smtp_username
+    SMTP_PASS     = module.ses.smtp_password
     FROM_EMAIL    = local.configuration.secrets.from_email
   }
 }

@@ -73,8 +73,3 @@ variable "bucket_policy_json" {
   type    = string
   default = null
 }
-
-variable "global_variables" {
-  type    = any
-  default = {}
-}

@@ -4,7 +4,7 @@
 
 output "lab_name" {
   description = "Current lab name"
-  value       = try(local.configuration.environment, var.lab_file)
+  value       = try(local.configuration.environment, var.environment)
 }
 
 output "environment" {
@@ -117,16 +117,18 @@ output "mq_console_url" {
 # SES
 ########################################
 
-output "ses_from_email_identity" {
-  description = "SES verified FROM email identity"
-  value       = module.ses.from_email_identity
+output "ses_smtp_username" {
+  value = module.ses.smtp_username
 }
 
-output "ses_smtp_iam_access_key_id" {
-  description = "IAM access key id used to generate SES SMTP credentials"
-  value       = module.ses.smtp_iam_access_key_id
+output "ses_smtp_password" {
+  value     = module.ses.smtp_password
+  sensitive = true
 }
 
+output "ses_from_email_address" {
+  value = module.ses.from_email_address
+}
 ########################################
 # App Secrets
 ########################################
@@ -184,12 +186,12 @@ output "app_url" {
 # CloudFront CDN
 ########################################
 
-output "cloudfront_domain" {
-  description = "CloudFront distribution domain"
-  value       = module.cloudfront_s3.domain_name
-}
+# output "cloudfront_domain" {
+#   description = "CloudFront distribution domain"
+#   value       = module.cloudfront_s3.domain_name
+# }
 
-output "images_cdn_url" {
-  description = "Base URL for product images"
-  value       = "https://${module.cloudfront_s3.domain_name}"
-}
+# output "images_cdn_url" {
+#   description = "Base URL for product images"
+#   value       = "https://${module.cloudfront_s3.domain_name}"
+# }

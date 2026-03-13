@@ -1,12 +1,10 @@
 locals {
-  labs = {
-    lab01 = local.lab01
-    lab02 = local.lab02
-    # lab03 = local.lab03
-    # lab04 = local.lab04
+  environments = {
+    dev  = local.dev
+    prod = local.prod
   }
 
-  selected = local.labs[var.lab_file]
+  selected = local.environments[var.environment]
 
   merged_global_variables = merge(
     local.global_variables,

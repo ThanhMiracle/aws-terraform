@@ -271,6 +271,14 @@ aws secretsmanager delete-secret \
   --secret-id 'lab01/app-secrets' \
   --force-delete-without-recovery
 
-  ssh -i ~/.ssh/id_ed25519 ubuntu@
+aws secretsmanager delete-secret \
+  --secret-id "lab01/mq/rabbitmq" \
+  --force-delete-without-recovery
+
+aws secretsmanager delete-secret \
+  --secret-id "lab01/microshop/app" \
+  --force-delete-without-recovery
+
+ssh -A -i ~/.ssh/id_ed25519 ubuntu@
 
 
