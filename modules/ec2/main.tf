@@ -47,15 +47,22 @@ resource "aws_security_group_rule" "ssh_from_cidrs" {
 
 # SSH from another SG (private use-case: bastion -> private)
 resource "aws_security_group_rule" "ssh_from_sg" {
-  for_each = var.enable_ssh_from_sg ? { "ssh" = var.ssh_source_sg_id } : {}
+  count = var.enable_ssh_from_sg ? 1 : 0
 
   type                     = "ingress"
+  description              = "Allow SSH from source security group"
   security_group_id        = aws_security_group.this.id
   from_port                = 22
   to_port                  = 22
   protocol                 = "tcp"
-  source_security_group_id = each.value
-  description              = "SSH from bastion security group"
+  source_security_group_id = var.ssh_source_sg_id
+
+  lifecycle {
+    precondition {
+      condition     = var.ssh_source_sg_id != null && trimspace(var.ssh_source_sg_id) != ""
+      error_message = "ssh_source_sg_id must be set when enable_ssh_from_sg is true."
+    }
+  }
 }
 
 

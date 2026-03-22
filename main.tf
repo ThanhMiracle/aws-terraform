@@ -19,6 +19,20 @@ module "tagging" {
 }
 
 ##########################
+# KMS MODULE
+##########################
+module "kms_s3" {
+  source = "./modules/kms"
+
+  description = "KMS key for S3 bucket encryption"
+  alias       = "alias/${local.environment}-s3"
+
+  deletion_window_in_days = local.configuration.kms_s3.deletion_window_in_days
+
+  tags = local.s3_tags
+}
+
+##########################
 # S3 MODULE
 ##########################
 module "s3" {
@@ -26,8 +40,12 @@ module "s3" {
   bucket_name        = local.configuration.s3.images_bucket_name
   force_destroy      = true
   versioning_enabled = false
+  kms_key_id = module.kms_s3.arn
+  
   tags               = local.s3_tags
 }
+
+
 
 ##########################
 # IAM MODULE
@@ -153,28 +171,28 @@ module "lb" {
 ##########################
 # ROUTE53 MODULE
 ##########################
-module "route53" {
-  source = "./modules/route53"
+# module "route53" {
+#   source = "./modules/route53"
 
-  name_prefix = local.environment
-  tags        = local.global_tags
+#   name_prefix = local.environment
+#   tags        = local.global_tags
 
-  create_zone      = false
-  zone_name        = local.configuration.route53.zone_name
-  existing_zone_id = local.configuration.route53.zone_id
+#   create_zone      = false
+#   zone_name        = local.configuration.route53.zone_name
+#   existing_zone_id = local.configuration.route53.zone_id
 
-  records = [
-    {
-      name = local.configuration.route53.record_name
-      type = "A"
-      alias = {
-        name                   = module.lb.dns_name
-        zone_id                = module.lb.zone_id
-        evaluate_target_health = true
-      }
-    }
-  ]
-}
+#   records = [
+#     {
+#       name = local.configuration.route53.record_name
+#       type = "A"
+#       alias = {
+#         name                   = module.lb.dns_name
+#         zone_id                = module.lb.zone_id
+#         evaluate_target_health = true
+#       }
+#     }
+#   ]
+# }
 
 ##########################
 # RDS MODULE

@@ -72,11 +72,6 @@ variable "associate_public_ip_address" {
 variable "enable_ssh_from_sg" {
   type    = bool
   default = false
-
-  validation {
-    condition     = !var.enable_ssh_from_sg || var.ssh_source_sg_id != null
-    error_message = "ssh_source_sg_id must be set when enable_ssh_from_sg is true."
-  }
 }
 
 variable "enable_app_from_sg" {

@@ -21,6 +21,11 @@ locals {
       recovery_window_days = 0
     }
 
+    kms_s3 = {
+      # description             = "KMS key for encrypting S3 bucket and RDS storage in dev environment"
+      deletion_window_in_days = 7
+    }
+
     secrets = {
       recovery_window_days = 0
 

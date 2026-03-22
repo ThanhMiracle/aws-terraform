@@ -34,29 +34,31 @@ resource "aws_iam_instance_profile" "this" {
 # Consolidated inline policy
 ########################################
 locals {
-  enable_s3_product_image_upload = (
-    var.enable_product_image_upload &&
-    var.s3_bucket_arn != null &&
-    trimspace(var.s3_bucket_arn) != ""
-  )
+  enable_s3_product_image_upload = var.enable_product_image_upload
+  enable_secrets_access          = var.enable_secrets_read
+}
 
-  enable_secrets_access = (
-    var.enable_secrets_read &&
-    length(var.secret_arns) > 0
-  )
+check "s3_bucket_arn_required" {
+  assert {
+    condition = (
+      !var.enable_product_image_upload ||
+      try(trimspace(var.s3_bucket_arn), "") != ""
+    )
+    error_message = "s3_bucket_arn must be set when enable_product_image_upload is true."
+  }
+}
 
-  create_combined_policy = (
-    var.allow_list_all_buckets ||
-    local.enable_s3_product_image_upload ||
-    var.allow_rds_describe ||
-    var.enable_ses_send ||
-    local.enable_secrets_access
-  )
+check "secret_arns_required" {
+  assert {
+    condition = (
+      !var.enable_secrets_read ||
+      length(var.secret_arns) > 0
+    )
+    error_message = "secret_arns must contain at least one ARN when enable_secrets_read is true."
+  }
 }
 
 data "aws_iam_policy_document" "combined" {
-  count = local.create_combined_policy ? 1 : 0
-
   ########################################
   # S3: optional list all buckets
   ########################################
@@ -72,10 +74,8 @@ data "aws_iam_policy_document" "combined" {
   }
 
   ########################################
-  # S3: product images (only when enabled)
+  # S3: product images
   ########################################
-
-  # Allow listing only the products/ prefix
   dynamic "statement" {
     for_each = local.enable_s3_product_image_upload ? [1] : []
     content {
@@ -94,7 +94,6 @@ data "aws_iam_policy_document" "combined" {
     }
   }
 
-  # Allow object operations under products/
   dynamic "statement" {
     for_each = local.enable_s3_product_image_upload ? [1] : []
     content {
@@ -112,7 +111,6 @@ data "aws_iam_policy_document" "combined" {
     }
   }
 
-  # Allow bucket-level operations needed by SDKs / multipart uploads
   dynamic "statement" {
     for_each = local.enable_s3_product_image_upload ? [1] : []
     content {
@@ -128,7 +126,7 @@ data "aws_iam_policy_document" "combined" {
   }
 
   ########################################
-  # Secrets Manager (only when enabled)
+  # Secrets Manager
   ########################################
   dynamic "statement" {
     for_each = local.enable_secrets_access ? [1] : []
@@ -143,7 +141,7 @@ data "aws_iam_policy_document" "combined" {
   }
 
   ########################################
-  # RDS describe (optional)
+  # RDS describe
   ########################################
   dynamic "statement" {
     for_each = var.allow_rds_describe ? [1] : []
@@ -157,7 +155,7 @@ data "aws_iam_policy_document" "combined" {
   }
 
   ########################################
-  # SES send email (optional)
+  # SES send email
   ########################################
   dynamic "statement" {
     for_each = var.enable_ses_send ? [1] : []
@@ -174,10 +172,9 @@ data "aws_iam_policy_document" "combined" {
 }
 
 resource "aws_iam_role_policy" "combined" {
-  count  = local.create_combined_policy ? 1 : 0
   name   = "${var.name_prefix}-combined"
   role   = aws_iam_role.this.name
-  policy = data.aws_iam_policy_document.combined[0].json
+  policy = data.aws_iam_policy_document.combined.json
 }
 
 ########################################

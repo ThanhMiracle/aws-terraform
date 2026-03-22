@@ -76,3 +76,4 @@ variable "enable_ses_send" {
   type        = bool
   default     = false
 }
+

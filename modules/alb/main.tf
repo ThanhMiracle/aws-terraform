@@ -78,13 +78,22 @@ resource "aws_lb_listener" "this" {
   port              = var.listener_port
   protocol          = upper(var.listener_protocol)
 
-  # Only valid for HTTPS
   certificate_arn = local.is_https ? var.certificate_arn : null
   ssl_policy      = local.is_https ? var.ssl_policy : null
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.this.arn
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        !local.is_https ||
+        try(trimspace(var.certificate_arn), "") != ""
+      )
+      error_message = "certificate_arn is required when listener_protocol=HTTPS."
+    }
   }
 }
 
