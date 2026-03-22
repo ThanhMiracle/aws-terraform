@@ -24,6 +24,7 @@ locals {
   mq_tags      = merge(local.base_tags, { Component = "mq" })
   ses_tags     = merge(local.base_tags, { Component = "ses" })
   secrets_tags = merge(local.base_tags, { Component = "secrets" })
+  elasticache_tags = merge(local.base_tags, { Component = "elasticache" })
 
   # Rendered user_data for private EC2
   user_data_rendered = templatefile(

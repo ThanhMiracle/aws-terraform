@@ -71,5 +71,28 @@ locals {
       skip_final_snapshot   = false
       apply_immediately     = false
     }
+
+    elasticache = {
+      engine                      = "valkey"
+      engine_version              = "8.0"
+      node_type                   = "cache.t4g.micro"
+      port                        = 6379
+      num_node_groups             = 1
+      replicas_per_node_group     = 1
+      automatic_failover_enabled  = true
+      multi_az_enabled            = true
+      at_rest_encryption_enabled  = true
+      transit_encryption_enabled  = true
+      parameter_group_family      = "valkey8"
+      apply_immediately           = false
+      snapshot_retention_limit    = 7
+
+      parameters = [
+        {
+          name  = "maxmemory-policy"
+          value = "allkeys-lru"
+        }
+      ]
+    }
   }
 }

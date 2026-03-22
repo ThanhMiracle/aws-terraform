@@ -181,17 +181,20 @@ output "app_url" {
   value       = "http://${module.lb.dns_name}"
 }
 
+#########################
+# Route53
+#########################
+output "route53_zone_id" {
+  description = "Route53 hosted zone ID"
+  value       = module.route53.zone_id
+}
 
-########################################
-# CloudFront CDN
-########################################
+output "route53_zone_name" {
+  description = "Route53 hosted zone name"
+  value       = module.route53.zone_name
+}
 
-# output "cloudfront_domain" {
-#   description = "CloudFront distribution domain"
-#   value       = module.cloudfront_s3.domain_name
-# }
-
-# output "images_cdn_url" {
-#   description = "Base URL for product images"
-#   value       = "https://${module.cloudfront_s3.domain_name}"
-# }
+output "route53_name_servers" {
+  description = "Route53 name servers"
+  value       = module.route53.name_servers
+}

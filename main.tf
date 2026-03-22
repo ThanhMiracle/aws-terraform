@@ -151,6 +151,32 @@ module "lb" {
 }
 
 ##########################
+# ROUTE53 MODULE
+##########################
+module "route53" {
+  source = "./modules/route53"
+
+  name_prefix = local.environment
+  tags        = local.global_tags
+
+  create_zone      = false
+  zone_name        = local.configuration.route53.zone_name
+  existing_zone_id = local.configuration.route53.zone_id
+
+  records = [
+    {
+      name = local.configuration.route53.record_name
+      type = "A"
+      alias = {
+        name                   = module.lb.dns_name
+        zone_id                = module.lb.zone_id
+        evaluate_target_health = true
+      }
+    }
+  ]
+}
+
+##########################
 # RDS MODULE
 ##########################
 module "rds" {
@@ -200,6 +226,41 @@ module "mq" {
   host_instance_type        = try(local.configuration.mq.host_instance_type, "mq.t3.micro")
   enable_management_ingress = false
   recovery_window_days      = try(local.configuration.mq.recovery_window_days, 7)
+}
+###########################
+# ELASTICACHE MODULE
+###########################
+
+module "elasticache" {
+  source = "./modules/elasticache"
+
+  name_prefix = local.environment
+  tags        = local.elasticache_tags
+
+  vpc_id             = module.vpc.vpc_id
+  private_subnet_ids = module.vpc.private_subnet_ids
+
+  allowed_sg_ids = [module.ec2_private.security_group_id]
+
+  engine         = try(local.configuration.elasticache.engine, "valkey")
+  engine_version = try(local.configuration.elasticache.engine_version, "8.0")
+  node_type      = try(local.configuration.elasticache.node_type, "cache.t4g.micro")
+  port           = try(local.configuration.elasticache.port, 6379)
+
+  num_node_groups         = try(local.configuration.elasticache.num_node_groups, 1)
+  replicas_per_node_group = try(local.configuration.elasticache.replicas_per_node_group, 1)
+
+  automatic_failover_enabled = try(local.configuration.elasticache.automatic_failover_enabled, true)
+  multi_az_enabled           = try(local.configuration.elasticache.multi_az_enabled, true)
+
+  at_rest_encryption_enabled = try(local.configuration.elasticache.at_rest_encryption_enabled, true)
+  transit_encryption_enabled = try(local.configuration.elasticache.transit_encryption_enabled, true)
+
+  parameter_group_family = try(local.configuration.elasticache.parameter_group_family, "valkey8")
+  parameters             = try(local.configuration.elasticache.parameters, [])
+
+  apply_immediately       = try(local.configuration.elasticache.apply_immediately, false)
+  snapshot_retention_limit = try(local.configuration.elasticache.snapshot_retention_limit, 7)
 }
 
 ##########################
