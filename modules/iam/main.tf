@@ -36,6 +36,7 @@ resource "aws_iam_instance_profile" "this" {
 locals {
   enable_s3_product_image_upload = var.enable_product_image_upload
   enable_secrets_access          = var.enable_secrets_read
+  enable_ssm_parameter_access    = var.enable_ssm_parameter_read
 }
 
 check "s3_bucket_arn_required" {
@@ -55,6 +56,16 @@ check "secret_arns_required" {
       length(var.secret_arns) > 0
     )
     error_message = "secret_arns must contain at least one ARN when enable_secrets_read is true."
+  }
+}
+
+check "ssm_parameter_arns_required" {
+  assert {
+    condition = (
+      !var.enable_ssm_parameter_read ||
+      length(var.ssm_parameter_arns) > 0
+    )
+    error_message = "ssm_parameter_arns must contain at least one ARN when enable_ssm_parameter_read is true."
   }
 }
 
@@ -169,6 +180,23 @@ data "aws_iam_policy_document" "combined" {
       resources = ["*"]
     }
   }
+
+  ########################################
+  # SSM Parameter Store
+  ########################################
+  dynamic "statement" {
+    for_each = local.enable_ssm_parameter_access ? [1] : []
+    content {
+      effect = "Allow"
+      actions = [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ]
+      resources = var.ssm_parameter_arns
+    }
+  }
+
 }
 
 resource "aws_iam_role_policy" "combined" {

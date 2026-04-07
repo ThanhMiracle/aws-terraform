@@ -40,9 +40,9 @@ module "s3" {
   bucket_name        = local.configuration.s3.images_bucket_name
   force_destroy      = true
   versioning_enabled = false
-  kms_key_id = module.kms_s3.arn
-  
-  tags               = local.s3_tags
+  kms_key_id         = module.kms_s3.arn
+
+  tags = local.s3_tags
 }
 
 
@@ -64,6 +64,9 @@ module "iam" {
     try(module.app_secrets.arn, null),
     try(module.mq.secret_arn, null)
   ])
+
+  enable_ssm_parameter_read = true
+  ssm_parameter_arns        = values(module.parameter_store.parameter_arns)
 
   enable_product_image_upload = local.configuration.ec2.enable_product_image_upload
   s3_bucket_arn               = module.s3.bucket_arn
@@ -277,7 +280,7 @@ module "elasticache" {
   parameter_group_family = try(local.configuration.elasticache.parameter_group_family, "valkey8")
   parameters             = try(local.configuration.elasticache.parameters, [])
 
-  apply_immediately       = try(local.configuration.elasticache.apply_immediately, false)
+  apply_immediately        = try(local.configuration.elasticache.apply_immediately, false)
   snapshot_retention_limit = try(local.configuration.elasticache.snapshot_retention_limit, 7)
 }
 
@@ -316,5 +319,65 @@ module "app_secrets" {
     SMTP_USER     = module.ses.smtp_username
     SMTP_PASS     = module.ses.smtp_password
     FROM_EMAIL    = local.configuration.secrets.from_email
+  }
+}
+
+
+##########################
+# SSM PARAMETER STORE MODULE
+##########################
+module "parameter_store" {
+  source = "./modules/ssm_parameter_store"
+
+  common_tags = local.secrets_tags
+
+  parameters = {
+    "/${local.environment}/microshop/app/DB_HOST" = {
+      type        = "String"
+      value       = module.rds.endpoint
+      description = "RDS endpoint"
+    }
+
+    "/${local.environment}/microshop/app/DB_PORT" = {
+      type        = "String"
+      value       = tostring(local.configuration.db.port)
+      description = "RDS port"
+    }
+
+    "/${local.environment}/microshop/app/DB_NAME" = {
+      type        = "String"
+      value       = local.configuration.db.db_name
+      description = "Database name"
+    }
+
+    "/${local.environment}/microshop/app/REDIS_HOST" = {
+      type        = "String"
+      value       = module.elasticache.primary_endpoint_address
+      description = "ElastiCache endpoint"
+    }
+
+    "/${local.environment}/microshop/app/REDIS_PORT" = {
+      type        = "String"
+      value       = tostring(try(local.configuration.elasticache.port, 6379))
+      description = "ElastiCache port"
+    }
+
+    "/${local.environment}/microshop/app/MQ_ENDPOINT" = {
+      type        = "String"
+      value       = one(flatten(module.mq.endpoints))
+      description = "MQ endpoint"
+    }
+
+    "/${local.environment}/microshop/app/SMTP_HOST" = {
+      type        = "String"
+      value       = local.configuration.secrets.smtp_host
+      description = "SMTP host"
+    }
+
+    "/${local.environment}/microshop/app/SMTP_PORT" = {
+      type        = "String"
+      value       = tostring(local.configuration.secrets.smtp_port)
+      description = "SMTP port"
+    }
   }
 }

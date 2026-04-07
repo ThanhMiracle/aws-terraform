@@ -15,15 +15,15 @@ locals {
   base_tags = module.tagging.tags
 
   # Component-specific tags
-  vpc_tags     = merge(local.base_tags, { Component = "vpc" })
-  ec2_tags     = merge(local.base_tags, { Component = "ec2" })
-  s3_tags      = merge(local.base_tags, { Component = "s3" })
-  iam_tags     = merge(local.base_tags, { Component = "iam" })
-  alb_tags     = merge(local.base_tags, { Component = "alb" })
-  rds_tags     = merge(local.base_tags, { Component = "rds" })
-  mq_tags      = merge(local.base_tags, { Component = "mq" })
-  ses_tags     = merge(local.base_tags, { Component = "ses" })
-  secrets_tags = merge(local.base_tags, { Component = "secrets" })
+  vpc_tags         = merge(local.base_tags, { Component = "vpc" })
+  ec2_tags         = merge(local.base_tags, { Component = "ec2" })
+  s3_tags          = merge(local.base_tags, { Component = "s3" })
+  iam_tags         = merge(local.base_tags, { Component = "iam" })
+  alb_tags         = merge(local.base_tags, { Component = "alb" })
+  rds_tags         = merge(local.base_tags, { Component = "rds" })
+  mq_tags          = merge(local.base_tags, { Component = "mq" })
+  ses_tags         = merge(local.base_tags, { Component = "ses" })
+  secrets_tags     = merge(local.base_tags, { Component = "secrets" })
   elasticache_tags = merge(local.base_tags, { Component = "elasticache" })
 
   # Rendered user_data for private EC2

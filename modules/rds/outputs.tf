@@ -23,3 +23,4 @@ output "master_user_secret_arn" {
 output "master_username" {
   value = aws_db_instance.this.username
 }
+

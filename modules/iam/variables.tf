@@ -77,3 +77,12 @@ variable "enable_ses_send" {
   default     = false
 }
 
+variable "enable_ssm_parameter_read" {
+  type    = bool
+  default = false
+}
+
+variable "ssm_parameter_arns" {
+  type    = list(string)
+  default = []
+}
